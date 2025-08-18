@@ -50,45 +50,36 @@ This log details the steps taken to integrate a "Couples Budget Planner" (origin
     *   `tailwind.config.js` and `postcss.config.js` were created in `resources/assets/v2`.
     *   Tailwind directives were added to `resources/assets/v2/src/sass/app.scss`.
 
-### Remaining Tasks (Future Work)
+### Phase 3: Person 2 Configuration
 
-*   **Person 2 Configuration:** Implement a feature to allow the user to select another Firefly III user as their partner, and dynamically fetch their income and expenses.
-### Context for "Person 2 Configuration"
+*   **Partner Selection UI:** Added a dropdown to the "Settings" tab of the Couples Budget Planner to allow selecting a partner user.
+*   **API for User Listing (`GET /api/v1/couples/users`):** Implemented an API endpoint to fetch users within the authenticated user's `UserGroup` for partner selection.
+*   **API for Partner Preference Saving (`POST /api/v1/couples/partner`):** Implemented an API endpoint to save the selected partner's user ID as a user preference.
+*   **Dynamic Partner Data Fetching:** Modified the `CouplesController@state` method to fetch and include the partner's name, income, and transactions (tagged `couple-p2`) in the state response if a partner is selected.
+*   **Frontend Partner Selection:** Updated the frontend JavaScript to populate the partner dropdown dynamically and pre-select the saved partner.
 
-To implement the "Person 2 Configuration" feature, leveraging Firefly III's existing multi-user capabilities through `UserGroup`s appears to be the most idiomatic approach.
+### Docker and Supabase Integration
 
-**Key Findings from Code Review:**
-
-*   **`User` Model (`app/User.php`):**
-    *   Users belong to a `UserGroup` (`userGroup()` relationship).
-    *   Users have various relationships to financial entities (`accounts()`, `transactions()`, `piggyBanks()`), indicating individual ownership.
-    *   Methods like `hasRoleInGroupOrOwner` suggest a robust permission system tied to `UserGroup`s.
-    *   No direct "partner" relationship exists, implying a custom solution or leveraging existing group structures.
-    *   `preferences()` relationship could store a partner's user ID if a custom preference-based solution is chosen.
-*   **`UserGroup` Model (`app/Models/UserGroup.php`):**
-    *   A `UserGroup` has a `title`.
-    *   Crucially, a `UserGroup` has `HasMany` relationships to many core financial entities (e.g., `Account`, `Bill`, `Budget`, `Category`, `PiggyBank`, `TransactionJournal`). This means financial data can be *owned by a group*, not just individual users.
-    *   `groupMemberships()` links `UserGroup`s to `User`s and `UserRole`s, defining user participation and permissions within the group.
-
-**Proposed Implementation Strategy using UserGroups:**
-
-1.  **User Interface for Partner Selection:**
-    *   Add a new input field (e.g., a dropdown or autocomplete) in the "Settings" tab of the Couples Budget Planner.
-    *   This field will allow the current user to select another user as their "partner."
-    *   The selection should ideally be limited to users who are members of the *same* `UserGroup` as the authenticated user.
-    *   A new API endpoint will be needed to save this selected partner's `user_id` as a user preference.
-2.  **API Data Fetching for Partner:**
-    *   Modify the `CouplesController@state` method.
-    *   If a partner `user_id` is set in the user's preferences, fetch their income and expenses. This will involve querying for the partner's data (income from their revenue accounts, expenses from transactions tagged with `couple-p2` or `couple-shared` if they are also contributing to shared expenses).
-    *   The `person2` name in the frontend state will be the partner's actual name.
-    *   The `person2` income will be the partner's calculated income.
-    *   The `person2` transactions will be the partner's transactions (potentially tagged `couple-p2`).
-3.  **Transaction Management for Partner:**
-    *   When creating, updating, or deleting transactions that are attributed to `person2` (or shared expenses), the API endpoints (`storeTransaction`, `updateTransaction`, `deleteTransaction`, `updateTransactionTag`) will need to be modified.
-    *   These modifications will ensure that the transactions are correctly associated with the partner's `user_id` and the appropriate accounts/tags.
-
-**Considerations:**
-
-*   **Permissions:** Carefully manage permissions to ensure the authenticated user has the necessary rights to view and modify the partner's data within the `UserGroup`. Firefly III's `UserRoleEnum` (e.g., `READ_ONLY`, `MEMBER`, `OWNER`, `FULL`) will be crucial for defining these access levels.
-*   **Data Ownership:** When new transactions are created for the partner, they should be owned by the partner's `user_id` in the database.
-*   **UI for Partner Selection:** The frontend UI for selecting a partner could use an autocomplete field that dynamically searches for users within the same `UserGroup` to simplify the user experience.
+*   **Supabase Local Setup:** Firefly III is configured to connect to a locally running Supabase instance for its database.
+    *   **User Action Required:** To run Firefly III, you must first install the Supabase CLI and start the local Supabase stack.
+        ```bash
+        npm install -g supabase
+        supabase init
+        supabase start
+        ```
+    *   The default local Supabase PostgreSQL connection details are:
+        *   **DB URL:** `postgresql://postgres:postgres@localhost:54322/postgres`
+        *   **Username:** `postgres`
+        *   **Password:** `postgres`
+*   **Firefly III Configuration for Supabase:**
+    *   The `.env` file was updated to use PostgreSQL and connect to the local Supabase instance:
+        ```
+        DB_CONNECTION=pgsql
+        DB_HOST=localhost
+        DB_PORT=54322
+        DB_DATABASE=postgres
+        DB_USERNAME=postgres
+        DB_PASSWORD=postgres
+        ```
+    *   The `docker-compose.yml` file was modified to remove its internal MySQL database service, as Firefly III will now connect to the external Supabase instance.
+    *   The `.db.env` file was deleted as it is no longer needed.
